@@ -1,0 +1,155 @@
+MACHINE MAINTENANCE KNOWLEDGE BASE
+
+==================================================
+TOPIC: HIGH PROCESS TEMPERATURE
+==================================================
+
+Condition:
+High process temperature indicates that the machine's process temperature
+is above the expected operating range.
+
+Possible Causes:
+- Excessive machine load
+- Insufficient cooling
+- Cooling system blockage
+- Poor heat dissipation
+- Abnormal operating conditions
+
+Inspection Steps:
+1. Check the cooling system.
+2. Inspect cooling fans and ventilation.
+3. Check whether the machine is operating under excessive load.
+4. Compare current process temperature with historical readings.
+5. Inspect for abnormal heat generation.
+
+Recommended Actions:
+- Reduce excessive machine load if possible.
+- Clean or restore cooling pathways.
+- Inspect the cooling system.
+- Continue monitoring temperature after corrective action.
+- If temperature continues increasing, schedule maintenance inspection.
+
+
+==================================================
+TOPIC: HIGH TORQUE
+==================================================
+
+Condition:
+High torque indicates that the machine is experiencing increased
+resistance during operation.
+
+Possible Causes:
+- Excessive mechanical load
+- Increased friction
+- Mechanical obstruction
+- Worn components
+- Tool-related resistance
+
+Inspection Steps:
+1. Check whether the machine is overloaded.
+2. Inspect moving mechanical components.
+3. Check for excessive friction.
+4. Inspect the tool and related components.
+5. Compare torque with normal operating values.
+
+Recommended Actions:
+- Reduce excessive load.
+- Inspect mechanical components for resistance.
+- Inspect the tool and replace it if excessive wear is present.
+- Check for mechanical obstruction.
+- Monitor torque after maintenance.
+
+
+==================================================
+TOPIC: HIGH TOOL WEAR
+==================================================
+
+Condition:
+High tool wear indicates that the machine tool has accumulated
+significant operating wear.
+
+Possible Causes:
+- Long operating duration
+- Normal tool degradation
+- Excessive mechanical load
+- High torque
+- Improper operating conditions
+
+Inspection Steps:
+1. Check current tool wear.
+2. Inspect the physical condition of the tool.
+3. Check torque and rotational speed.
+4. Review recent machine operating history.
+5. Determine whether the tool has exceeded its expected service interval.
+
+Recommended Actions:
+- Schedule tool inspection.
+- Replace the tool when excessive wear is confirmed.
+- Check related operating conditions.
+- Monitor torque and machine performance after replacement.
+
+
+==================================================
+TOPIC: LOW ROTATIONAL SPEED
+==================================================
+
+Condition:
+Low rotational speed indicates that the machine is operating below
+its expected rotational speed.
+
+Possible Causes:
+- Excessive mechanical load
+- Increased friction
+- Mechanical obstruction
+- Tool resistance
+- Motor or drive-related problems
+
+Inspection Steps:
+1. Check current torque.
+2. Check machine load.
+3. Inspect mechanical components.
+4. Inspect the tool for excessive wear.
+5. Check whether rotational speed remains low over multiple readings.
+
+Recommended Actions:
+- Inspect for excessive load or mechanical resistance.
+- Check the tool condition.
+- Inspect the drive system if the condition persists.
+- Monitor rotational speed after corrective action.
+
+
+==================================================
+TOPIC: MACHINE FAILURE RISK
+==================================================
+
+Condition:
+A high ML-predicted failure probability indicates that the machine
+may be approaching an abnormal operating condition.
+
+Possible Causes:
+The exact cause depends on the sensor conditions contributing to the
+prediction. Important conditions include:
+- High process temperature
+- High torque
+- High tool wear
+- Low rotational speed
+- Multiple abnormal sensor conditions occurring together
+
+Inspection Steps:
+1. Review the ML failure probability.
+2. Review all abnormal sensor conditions.
+3. Check recent sensor history.
+4. Inspect the most relevant mechanical or thermal conditions.
+5. Determine whether immediate maintenance is required.
+
+Recommended Actions:
+- For high-risk conditions, perform an immediate maintenance inspection.
+- If multiple severe conditions occur together, consider stopping or
+  isolating the machine according to operational safety procedures.
+- Record the observed condition and maintenance action.
+- Continue monitoring after corrective action.
+
+
+==================================================
+END OF KNOWLEDGE BASE
+==================================================

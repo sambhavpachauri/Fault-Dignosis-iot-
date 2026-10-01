@@ -1,0 +1,66 @@
+services:
+  # ============================================================================
+  # 1. PostgreSQL Relational Database Service
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: p311-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-p311}
+      POSTGRES_USER: ${POSTGRES_USER:-p311_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-p311_secure_pass_2026}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      # Persistent Docker volume — survives container restarts, stop, and down/up
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-p311_user} -d ${POSTGRES_DB:-p311}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - p311-network
+
+  # ============================================================================
+  # 2. FastAPI SCADA & Predictive Diagnostics Backend
+  # ============================================================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: p311-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Connects to PostgreSQL container over internal Docker network
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-p311_user}:${POSTGRES_PASSWORD:-p311_secure_pass_2026}@postgres:5432/${POSTGRES_DB:-p311}
+      MQTT_BROKER: ${DOCKER_MQTT_BROKER:-host.docker.internal}
+      MQTT_PORT: ${MQTT_PORT:-1883}
+      MQTT_TOPIC: ${MQTT_TOPIC:-factory/machine1/sensors}
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      # Routes container requests to host's Mosquitto broker (127.0.0.1:1883)
+      - "host.docker.internal:host-gateway"
+    networks:
+      - p311-network
+
+# ==============================================================================
+# Persistent Named Volumes
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+
+# ==============================================================================
+# Internal Bridge Network
+# ==============================================================================
+networks:
+  p311-network:
+    driver: bridge

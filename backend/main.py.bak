@@ -1,0 +1,127 @@
+import asyncio
+from contextlib import asynccontextmanager
+from typing import Optional, List
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from backend.schemas.models import (
+    TelemetryRecord,
+    SystemStatus,
+    StructuredRAGTopic
+)
+from backend.mqtt_handler import mqtt_handler
+from backend.services.rag_service import rag_service
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Setup asyncio event loop on MQTT handler for websocket broadcasting
+    loop = asyncio.get_running_loop()
+    mqtt_handler.set_loop(loop)
+    mqtt_handler.start()
+    print("[FastAPI] Backend started and MQTT handler initiated.")
+    yield
+    mqtt_handler.stop()
+    print("[FastAPI] Backend stopped.")
+
+
+app = FastAPI(
+    title="P_311 IoT Fault Diagnosis API",
+    description="Knowledge-Driven IoT Fault Diagnosis & Predictive Maintenance Backend",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Enable CORS for frontend dev server
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/api/status", response_model=SystemStatus)
+def get_system_status():
+    """Returns connectivity and telemetry metrics."""
+    return mqtt_handler.get_status()
+
+
+@app.get("/api/latest")
+def get_latest_telemetry():
+    """
+    Returns the latest real telemetry reading, or a waiting response if none received yet.
+    """
+    latest = mqtt_handler.get_latest()
+    if latest is None:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "waiting": True,
+                "message": "Waiting for machine data...",
+                "status": mqtt_handler.get_status().model_dump()
+            }
+        )
+    return latest
+
+
+@app.get("/api/history", response_model=List[TelemetryRecord])
+def get_telemetry_history(
+    limit: int = Query(50, ge=1, le=200),
+    severity: Optional[str] = Query(None, description="Filter by severity: LOW, MEDIUM, HIGH, CRITICAL, or ALL")
+):
+    """Returns recent real telemetry readings received from MQTT."""
+    return mqtt_handler.get_history(limit=limit, severity=severity)
+
+
+@app.get("/api/knowledge", response_model=List[StructuredRAGTopic])
+def get_all_knowledge():
+    """Returns all structured knowledge topics from the maintenance knowledge base."""
+    return rag_service.get_all_topics()
+
+
+@app.get("/api/knowledge/search", response_model=List[StructuredRAGTopic])
+def search_knowledge(q: str = Query(..., min_length=2)):
+    """Performs semantic vector search on maintenance knowledge."""
+    return rag_service.search(q, k=3)
+
+
+@app.websocket("/ws/telemetry")
+async def websocket_telemetry_stream(websocket: WebSocket):
+    """
+    Real-time streaming WebSocket.
+    Pushes each new MQTT sensor reading + ML diagnosis immediately.
+    """
+    await websocket.accept()
+    queue = asyncio.Queue(maxsize=100)
+    mqtt_handler.ws_subscribers.add(queue)
+
+    try:
+        # Immediately send latest reading if available
+        latest = mqtt_handler.get_latest()
+        if latest is not None:
+            await websocket.send_json({
+                "type": "telemetry",
+                "data": latest.model_dump()
+            })
+        else:
+            await websocket.send_json({
+                "type": "waiting",
+                "message": "Waiting for machine data..."
+            })
+
+        while True:
+            # Wait for new incoming telemetry dispatched from MQTT thread
+            record_data = await queue.get()
+            await websocket.send_json({
+                "type": "telemetry",
+                "data": record_data
+            })
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"[WebSocket] Disconnected with error: {e}")
+    finally:
+        mqtt_handler.ws_subscribers.discard(queue)

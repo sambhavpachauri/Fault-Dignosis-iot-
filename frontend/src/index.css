@@ -1,0 +1,189 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Industrial Palette */
+  --bg-primary: #151719;
+  --bg-secondary: #1C1F21;
+  --bg-panel: #222628;
+  --bg-elevated: #292D30;
+  --bg-deep: #151719;
+  --bg-surface: #222628;
+
+  /* Technical Borders */
+  --border-normal: #3A3F42;
+  --border-strong: #50565A;
+  --border-subtle: #3A3F42;
+
+  /* Typography */
+  --text-primary: #E6E8E9;
+  --text-secondary: #A7ADB1;
+  --text-muted: #737A7F;
+
+  /* Single Restrained Accent */
+  --accent: #5B7C99;
+  --accent-subtle: rgba(91, 124, 153, 0.18);
+  --accent-border: #5B7C99;
+
+  /* Status Colors */
+  --status-normal: #6FA36F;
+  --status-normal-bg: rgba(111, 163, 111, 0.12);
+  --status-normal-border: #6FA36F;
+
+  --status-medium: #C39A4A;
+  --status-medium-bg: rgba(195, 154, 74, 0.12);
+  --status-medium-border: #C39A4A;
+
+  --status-high: #C8753D;
+  --status-high-bg: rgba(200, 117, 61, 0.12);
+  --status-high-border: #C8753D;
+
+  --status-critical: #B65353;
+  --status-critical-bg: rgba(182, 83, 83, 0.15);
+  --status-critical-border: #B65353;
+
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom Matte Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-normal);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* Flat Industrial Cards */
+.card-panel {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-normal);
+  border-radius: 4px;
+  padding: 1.25rem;
+  transition: border-color 0.15s ease;
+}
+
+.card-panel-elevated {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-normal);
+  border-radius: 4px;
+  padding: 1.25rem;
+}
+
+/* Technical Status Badges (Flat, Matte) */
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.badge-normal {
+  color: var(--status-normal);
+  background-color: var(--status-normal-bg);
+  border: 1px solid var(--status-normal-border);
+}
+
+.badge-medium {
+  color: var(--status-medium);
+  background-color: var(--status-medium-bg);
+  border: 1px solid var(--status-medium-border);
+}
+
+.badge-high {
+  color: var(--status-high);
+  background-color: var(--status-high-bg);
+  border: 1px solid var(--status-high-border);
+}
+
+.badge-critical {
+  color: var(--status-critical);
+  background-color: var(--status-critical-bg);
+  border: 1px solid var(--status-critical-border);
+}
+
+/* Flat Technical Buttons */
+.btn-tech {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid var(--border-normal);
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-tech:hover {
+  background-color: #32373B;
+  border-color: var(--border-strong);
+}
+
+.btn-tech:active {
+  background-color: #24282B;
+}
+
+.btn-tech-active {
+  background-color: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+/* Small Solid Status Dots (No Glow, No Halo) */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.status-dot-normal {
+  background-color: var(--status-normal);
+}
+
+.status-dot-medium {
+  background-color: var(--status-medium);
+}
+
+.status-dot-high {
+  background-color: var(--status-high);
+}
+
+.status-dot-critical {
+  background-color: var(--status-critical);
+}
