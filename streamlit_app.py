@@ -652,13 +652,26 @@ is_waiting = not latest_data or latest_data.get("waiting", False)
 sensors = latest_data.get("sensors", {}) if not is_waiting else {}
 diagnosis = latest_data.get("diagnosis", {}) if not is_waiting else {}
 evals = diagnosis.get("sensor_evaluations", {}) if not is_waiting else {}
-severity = diagnosis.get("severity", "LOW")
-status_label = diagnosis.get("status", "NORMAL")
-failure_prob = diagnosis.get("failure_probability", 0.0)
-failure_prob_pct = diagnosis.get("failure_probability_pct", f"{failure_prob*100:.2f}%")
-recommendation = diagnosis.get("recommendation", "Machine operating within nominal envelope. Maintain scheduled telemetry logging.")
-issues = diagnosis.get("issues", [])
-rag_items = diagnosis.get("rag_knowledge", [])
+severity = diagnosis.get("severity", "LOW") if not is_waiting else "LOW"
+status_label = diagnosis.get("status", "NORMAL") if not is_waiting else "NORMAL"
+failure_prob = diagnosis.get("failure_probability", 0.0) if not is_waiting else 0.0
+failure_prob_pct = diagnosis.get("failure_probability_pct", f"{failure_prob*100:.2f}%") if not is_waiting else "0.00%"
+recommendation = diagnosis.get("recommendation", "Machine operating within nominal envelope. Maintain scheduled telemetry logging.") if not is_waiting else "Standing by for telemetry ingestion."
+issues = diagnosis.get("issues", []) if not is_waiting else []
+rag_items = diagnosis.get("rag_knowledge", []) if not is_waiting else []
+
+# Global Severity Badge & Status Indicator styling (Guaranteed in all scopes and waiting states)
+indicator_color = "var(--status-normal)"
+badge_cls = "badge-normal"
+if severity == "MEDIUM":
+    indicator_color = "var(--status-medium)"
+    badge_cls = "badge-medium"
+elif severity == "HIGH":
+    indicator_color = "var(--status-high)"
+    badge_cls = "badge-high"
+elif severity == "CRITICAL":
+    indicator_color = "var(--status-critical)"
+    badge_cls = "badge-critical"
 
 # ==============================================================================
 # 2. WORKSTATION NAVIGATION TABS (5 Tabs Matching React UI)
@@ -1134,113 +1147,124 @@ with tab_twin:
 # TAB 3: DIAGNOSTICS & RAG MANUAL (DiagnosticsPage.jsx & RAGKnowledgePanel.jsx)
 # ==============================================================================
 with tab_diagnostics:
-    st.markdown(f"""
-    <div class="card-panel" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.25rem;">
-        <div>
-            <h2 style="font-size:1.15rem; font-weight:600; color:var(--text-primary); margin:0; display:flex; align-items:center; gap:0.5rem;">
-                🩺 Machine Diagnostics & RAG Knowledge Manual
-            </h2>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0 0;">
-                Multi-tier heuristic evaluation correlated with dense FAISS vector maintenance database
+    if is_waiting:
+        st.markdown("""
+        <div class="card-panel" style="padding:2.5rem; text-align:center; color:var(--text-muted); margin-bottom:1.25rem;">
+            <div style="font-size:2rem; margin-bottom:0.75rem;">🩺</div>
+            <h3 style="font-size:1.1rem; color:var(--text-primary); margin-bottom:0.35rem;">Diagnostic Engine Standing By</h3>
+            <p style="font-size:0.825rem; max-width:480px; margin:0 auto;">
+                Awaiting live telemetry from MQTT broker to perform heuristic and vector evaluations...
             </p>
         </div>
-        <div style="display:flex; gap:0.65rem; align-items:center;">
-            <span class="badge-status {badge_cls}">
-                {severity} SEVERITY
-            </span>
-            <span class="mono" style="font-size:0.82rem; color:var(--text-secondary); background-color:var(--bg-elevated); border:1px solid var(--border-normal); padding:0.2rem 0.55rem; border-radius:3px;">
-                Risk: {failure_prob_pct}
-            </span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if rag_items and len(rag_items) > 0:
+        """, unsafe_allow_html=True)
+    else:
         st.markdown(f"""
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-            <div style="font-size:0.95rem; font-weight:600; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.04em;">
-                Contextually Retrieved Maintenance Protocols ({len(rag_items)} Matched)
+        <div class="card-panel" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.25rem;">
+            <div>
+                <h2 style="font-size:1.15rem; font-weight:600; color:var(--text-primary); margin:0; display:flex; align-items:center; gap:0.5rem;">
+                    🩺 Machine Diagnostics & RAG Knowledge Manual
+                </h2>
+                <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0 0;">
+                    Multi-tier heuristic evaluation correlated with dense FAISS vector maintenance database
+                </p>
             </div>
-            <div style="font-size:0.8rem; color:var(--text-muted); background:var(--bg-elevated); padding:0.2rem 0.55rem; border-radius:3px; border:1px solid var(--border-normal);">
-                Embedding: all-MiniLM-L6-v2 (384-dim)
+            <div style="display:flex; gap:0.65rem; align-items:center;">
+                <span class="badge-status {badge_cls}">
+                    {severity} SEVERITY
+                </span>
+                <span class="mono" style="font-size:0.82rem; color:var(--text-secondary); background-color:var(--bg-elevated); border:1px solid var(--border-normal); padding:0.2rem 0.55rem; border-radius:3px;">
+                    Risk: {failure_prob_pct}
+                </span>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        for idx, item in enumerate(rag_items):
-            topic = item.get("topic", f"Topic {idx+1}")
-            cond = item.get("condition", "N/A")
-            causes = item.get("possible_causes", [])
-            actions = item.get("recommended_actions", [])
-            steps = item.get("inspection_steps", [])
-
-            causes_html = "".join([f"<li style='margin-bottom:0.35rem;'>{c}</li>" for c in causes])
-            actions_html = "".join([f"<li style='margin-bottom:0.35rem;'>{a}</li>" for a in actions])
-            steps_html = "".join([f"""
-                <div style="display:flex; align-items:flex-start; gap:0.75rem; font-size:0.88rem; color:var(--text-secondary); margin-bottom:0.45rem;">
-                    <span class="mono" style="background-color:var(--bg-panel); border:1px solid var(--border-normal); color:var(--text-primary); padding:0.15rem 0.5rem; border-radius:3px; font-size:0.78rem; font-weight:600; flex-shrink:0;">
-                        {s_idx + 1}
-                    </span>
-                    <span style="line-height:1.5;">{s.replace(f'{s_idx+1}.', '').strip()}</span>
-                </div>
-            """ for s_idx, s in enumerate(steps)])
-
+        if rag_items and len(rag_items) > 0:
             st.markdown(f"""
-            <div class="card-panel" style="margin-bottom:1.25rem; padding:1.35rem;">
-                <div style="background-color:var(--bg-elevated); padding:0.65rem 1rem; border-radius:4px; border:1px solid var(--border-normal); display:flex; align-items:center; gap:0.65rem; margin-bottom:1rem;">
-                    <span style="color:var(--status-high);">🛡️</span>
-                    <span style="font-size:0.95rem; font-weight:700; color:var(--text-primary); letter-spacing:0.02em;">
-                        TOPIC: {topic}
-                    </span>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                <div style="font-size:0.95rem; font-weight:600; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.04em;">
+                    Contextually Retrieved Maintenance Protocols ({len(rag_items)} Matched)
                 </div>
-
-                <div style="background-color:var(--bg-elevated); border-left:4px solid var(--accent); padding:0.85rem 1.15rem; border-radius:0 4px 4px 0; margin-bottom:1rem;">
-                    <h4 style="font-size:0.82rem; font-weight:700; text-transform:uppercase; color:var(--accent); margin-bottom:0.35rem; letter-spacing:0.04em;">
-                        Condition
-                    </h4>
-                    <p style="font-size:0.92rem; color:var(--text-primary); line-height:1.5; margin:0;">
-                        {cond}
-                    </p>
-                </div>
-
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
-                    <div style="background-color:var(--bg-elevated); border:1px solid var(--border-normal); border-radius:4px; padding:1rem 1.15rem;">
-                        <div style="color:var(--status-medium); font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.65rem;">
-                            ❓ Possible Root Causes
-                        </div>
-                        <ul style="margin:0; padding-left:1.25rem; font-size:0.88rem; color:var(--text-secondary); line-height:1.5;">
-                            {causes_html}
-                        </ul>
-                    </div>
-
-                    <div style="background-color:var(--bg-elevated); border:1px solid var(--border-normal); border-radius:4px; padding:1rem 1.15rem;">
-                        <div style="color:var(--status-normal); font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.65rem;">
-                            🔧 Recommended Corrective Actions
-                        </div>
-                        <ul style="margin:0; padding-left:1.25rem; font-size:0.88rem; color:var(--text-secondary); line-height:1.5;">
-                            {actions_html}
-                        </ul>
-                    </div>
-                </div>
-
-                <div style="background-color:var(--bg-elevated); border:1px solid var(--border-normal); border-radius:4px; padding:1rem 1.15rem;">
-                    <div style="color:var(--accent); font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.65rem;">
-                        📋 Standard Operating Inspection Steps
-                    </div>
-                    {steps_html}
+                <div style="font-size:0.8rem; color:var(--text-muted); background:var(--bg-elevated); padding:0.2rem 0.55rem; border-radius:3px; border:1px solid var(--border-normal);">
+                    Embedding: all-MiniLM-L6-v2 (384-dim)
                 </div>
             </div>
             """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <div class="card-panel" style="padding:2.5rem; text-align:center; color:var(--text-muted);">
-            <div style="font-size:1.8rem; margin-bottom:0.5rem;">📖</div>
-            <h4 style="color:var(--text-primary); margin-bottom:0.25rem;">No Active Abnormal Condition</h4>
-            <p style="font-size:0.85rem; max-width:480px; margin:0 auto;">
-                When an anomaly or fault risk is identified, the FAISS vector index retrieves contextual repair instructions automatically.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+
+            for idx, item in enumerate(rag_items):
+                topic = item.get("topic", f"Topic {idx+1}")
+                cond = item.get("condition", "N/A")
+                causes = item.get("possible_causes", [])
+                actions = item.get("recommended_actions", [])
+                steps = item.get("inspection_steps", [])
+
+                causes_html = "".join([f"<li style='margin-bottom:0.35rem;'>{c}</li>" for c in causes])
+                actions_html = "".join([f"<li style='margin-bottom:0.35rem;'>{a}</li>" for a in actions])
+                steps_html = "".join([f"""
+                    <div style="display:flex; align-items:flex-start; gap:0.75rem; font-size:0.88rem; color:var(--text-secondary); margin-bottom:0.45rem;">
+                        <span class="mono" style="background-color:var(--bg-panel); border:1px solid var(--border-normal); color:var(--text-primary); padding:0.15rem 0.5rem; border-radius:3px; font-size:0.78rem; font-weight:600; flex-shrink:0;">
+                            {s_idx + 1}
+                        </span>
+                        <span style="line-height:1.5;">{s.replace(f'{s_idx+1}.', '').strip()}</span>
+                    </div>
+                """ for s_idx, s in enumerate(steps)])
+
+                st.markdown(f"""
+                <div class="card-panel" style="margin-bottom:1.25rem; padding:1.35rem;">
+                    <div style="background-color:var(--bg-elevated); padding:0.65rem 1rem; border-radius:4px; border:1px solid var(--border-normal); display:flex; align-items:center; gap:0.65rem; margin-bottom:1rem;">
+                        <span style="color:var(--status-high);">🛡️</span>
+                        <span style="font-size:0.95rem; font-weight:700; color:var(--text-primary); letter-spacing:0.02em;">
+                            TOPIC: {topic}
+                        </span>
+                    </div>
+
+                    <div style="background-color:var(--bg-elevated); border-left:4px solid var(--accent); padding:0.85rem 1.15rem; border-radius:0 4px 4px 0; margin-bottom:1rem;">
+                        <h4 style="font-size:0.82rem; font-weight:700; text-transform:uppercase; color:var(--accent); margin-bottom:0.35rem; letter-spacing:0.04em;">
+                            Condition
+                        </h4>
+                        <p style="font-size:0.92rem; color:var(--text-primary); line-height:1.5; margin:0;">
+                            {cond}
+                        </p>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+                        <div style="background-color:var(--bg-elevated); border:1px solid var(--border-normal); border-radius:4px; padding:1rem 1.15rem;">
+                            <div style="color:var(--status-medium); font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.65rem;">
+                                ❓ Possible Root Causes
+                            </div>
+                            <ul style="margin:0; padding-left:1.25rem; font-size:0.88rem; color:var(--text-secondary); line-height:1.5;">
+                                {causes_html}
+                            </ul>
+                        </div>
+
+                        <div style="background-color:var(--bg-elevated); border:1px solid var(--border-normal); border-radius:4px; padding:1rem 1.15rem;">
+                            <div style="color:var(--status-normal); font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.65rem;">
+                                🔧 Recommended Corrective Actions
+                            </div>
+                            <ul style="margin:0; padding-left:1.25rem; font-size:0.88rem; color:var(--text-secondary); line-height:1.5;">
+                                {actions_html}
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div style="background-color:var(--bg-elevated); border:1px solid var(--border-normal); border-radius:4px; padding:1rem 1.15rem;">
+                        <div style="color:var(--accent); font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.65rem;">
+                            📋 Standard Operating Inspection Steps
+                        </div>
+                        {steps_html}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="card-panel" style="padding:2.5rem; text-align:center; color:var(--text-muted);">
+                <div style="font-size:1.8rem; margin-bottom:0.5rem;">📖</div>
+                <h4 style="color:var(--text-primary); margin-bottom:0.25rem;">No Active Abnormal Condition</h4>
+                <p style="font-size:0.85rem; max-width:480px; margin:0 auto;">
+                    When an anomaly or fault risk is identified, the FAISS vector index retrieves contextual repair instructions automatically.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
 
     # Semantic Knowledge Base Search Drawer
     st.markdown("<div style='height:0.85rem;'></div>", unsafe_allow_html=True)
