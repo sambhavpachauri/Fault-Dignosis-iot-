@@ -226,21 +226,43 @@ except Exception:
 if "BACKEND_URL" in os.environ:
     default_backend = os.environ["BACKEND_URL"]
 
+# ==============================================================================
+# SCADA HTML Rendering Helper Functions
+# ==============================================================================
+def clean_scada_html(html_str: str) -> str:
+    """
+    Cleans an HTML/SVG string so that it renders properly in Streamlit:
+    1. Strips leading and trailing whitespace from every line, eliminating the
+       >= 4 space indentation that triggers CommonMark/Markdown-it code blocks (<pre><code>).
+    2. Drops empty lines to prevent paragraph splits from breaking HTML container blocks.
+    """
+    if not html_str:
+        return ""
+    return "\n".join(line.strip() for line in html_str.strip().splitlines() if line.strip())
+
+def render_scada_html(html_str: str):
+    """
+    Renders custom SCADA HTML/SVG cleanly without code block escaping.
+    """
+    if not html_str:
+        return
+    st.markdown(clean_scada_html(html_str), unsafe_allow_html=True)
+
 # Sidebar connection settings
 with st.sidebar:
     st.markdown("### ⚙️ SCADA Cloud Settings")
-    st.markdown("<p style='font-size:0.8rem; color:#A7ADB1;'>Configure backend API connectivity for cloud deployments.</p>", unsafe_allow_html=True)
+    render_scada_html("<p style='font-size:0.8rem; color:#A7ADB1;'>Configure backend API connectivity for cloud deployments.</p>")
     custom_backend = st.text_input("FastAPI Endpoint URL", value=default_backend, help="Points to local or cloud-deployed FastAPI REST server.")
     BACKEND_URL = custom_backend.rstrip("/")
     st.markdown("---")
-    st.markdown("""
+    render_scada_html("""
     <div style='font-size:0.75rem; color:#737A7F;'>
         <strong>Cloud Deployment Notes:</strong><br>
         • Deploy on Streamlit Cloud from your GitHub repo.<br>
         • If backend is local, set up an ngrok or public tunnel URL here.<br>
         • Standalone engine activates automatically if backend is offline.
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 if "active_machine" not in st.session_state:
     st.session_state.active_machine = "Machine 1"
@@ -320,10 +342,10 @@ def trigger_simulation(url: str, scenario: str, machine_id: str):
 # ==============================================================================
 def render_sparkline_svg(data, color="#5B7C99", width=80, height=22):
     if not data or len(data) < 2:
-        return f'<span style="font-size:0.65rem; color:#737A7F;">--</span>'
+        return '<span style="font-size:0.65rem; color:#737A7F;">--</span>'
     nums = [float(x) for x in data if x is not None]
     if len(nums) < 2:
-        return f'<span style="font-size:0.65rem; color:#737A7F;">--</span>'
+        return '<span style="font-size:0.65rem; color:#737A7F;">--</span>'
     min_v, max_v = min(nums), max(nums)
     rng = max_v - min_v or 1.0
     pts = []
@@ -331,27 +353,13 @@ def render_sparkline_svg(data, color="#5B7C99", width=80, height=22):
         x = (i / (len(nums) - 1)) * width
         y = height - ((v - min_v) / rng) * (height - 4) - 2
         pts.append(f"{x:.1f},{y:.1f}")
-    return f"""
-    <svg width="{width}" height="{height}" style="overflow:visible;">
-        <polyline fill="none" stroke="{color}" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="round" points="{' '.join(pts)}" />
-    </svg>
-    """
+    return f'<svg width="{width}" height="{height}" style="overflow:visible;"><polyline fill="none" stroke="{color}" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="round" points="{" ".join(pts)}" /></svg>'
 
 def render_range_bar_html(val, min_v, max_v, unit, is_normal, status_color):
     clamped = max(min_v, min(max_v, float(val or 0)))
     pct = max(0, min(100, ((clamped - min_v) / (max_v - min_v)) * 100))
     bar_color = "var(--border-strong)" if is_normal else status_color
-    return f"""
-    <div style="width:100%; margin-top:0.65rem;">
-        <div style="position:relative; width:100%; height:4px; background-color:var(--bg-secondary); border-radius:2px; overflow:hidden;">
-            <div style="width:{pct:.1f}%; height:100%; background-color:{bar_color}; border-radius:2px;"></div>
-        </div>
-        <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-muted); margin-top:0.25rem;">
-            <span>{min_v} {unit}</span>
-            <span>{max_v} {unit}</span>
-        </div>
-    </div>
-    """
+    return f'<div style="width:100%; margin-top:0.65rem;"><div style="position:relative; width:100%; height:4px; background-color:var(--bg-secondary); border-radius:2px; overflow:hidden;"><div style="width:{pct:.1f}%; height:100%; background-color:{bar_color}; border-radius:2px;"></div></div><div style="display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-muted); margin-top:0.25rem;"><span>{min_v} {unit}</span><span>{max_v} {unit}</span></div></div>'
 
 def render_failure_risk_gauge_svg(probability=0.0, threshold=0.40, status="NORMAL"):
     prob_pct = max(0.0, min(100.0, probability * 100))
@@ -385,7 +393,7 @@ def render_failure_risk_gauge_svg(probability=0.0, threshold=0.40, status="NORMA
     nx = 110 + 70 * math.cos(nrad)
     ny = 110 - 70 * math.sin(nrad)
 
-    return f"""
+    return clean_scada_html(f"""
     <div class="card-panel" style="display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:1.45rem; min-height:265px;">
         <div style="width:100%; display:flex; align-items:center; justify-content:space-between;">
             <div style="display:flex; align-items:center; gap:0.5rem;">
@@ -421,7 +429,7 @@ def render_failure_risk_gauge_svg(probability=0.0, threshold=0.40, status="NORMA
             <strong style="color:{status_color}; font-size:0.9rem;">{status}</strong>
         </div>
     </div>
-    """
+    """)
 
 def render_machine_schematic_svg(sensors, evals, selected_part="all"):
     motor_alert = not evals.get("rotational_speed", {}).get("is_normal", True) or not evals.get("torque", {}).get("is_normal", True)
@@ -443,7 +451,7 @@ def render_machine_schematic_svg(sensors, evals, selected_part="all"):
     air_val = sensors.get("air_temperature", 0.0)
     wear_val = sensors.get("tool_wear", 0)
 
-    return f"""
+    return clean_scada_html(f"""
     <div style="position:relative; width:100%; background-color:var(--bg-secondary); border-radius:4px; border:1px solid var(--border-normal); display:flex; align-items:center; justify-content:center; padding:1.25rem; overflow:hidden;">
         <svg viewBox="0 0 960 330" style="width:100%; height:auto; max-height:350px;">
             <!-- Centerline Axis -->
@@ -514,7 +522,7 @@ def render_machine_schematic_svg(sensors, evals, selected_part="all"):
             </g>
         </svg>
     </div>
-    """
+    """)
 
 # ==============================================================================
 # Fetch Real-Time Data from FastAPI
@@ -543,7 +551,7 @@ history_records = fetch_history(BACKEND_URL, st.session_state.active_machine, li
 header_col1, header_col2 = st.columns([1.3, 2.2])
 
 with header_col1:
-    st.markdown("""
+    render_scada_html("""
     <div style="display:flex; align-items:center; gap:0.9rem; margin-bottom:0.25rem;">
         <div style="background-color:var(--bg-elevated); border:1px solid var(--border-normal); padding:0.45rem 0.85rem; border-radius:4px; font-size:1.05rem; font-weight:700; letter-spacing:0.05em; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
             ⚙️ P_311
@@ -557,7 +565,7 @@ with header_col1:
             </p>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 with header_col2:
     # Machine selection, Connection status pills, updated time, controls
@@ -577,31 +585,31 @@ with header_col2:
     with c_mqtt:
         dot_color = "var(--status-normal)" if mqtt_connected else "var(--status-critical)"
         status_txt = "MQTT Connected" if mqtt_connected else "MQTT Offline"
-        st.markdown(f"""
+        render_scada_html(f"""
         <div style="display:flex; align-items:center; gap:0.55rem; font-size:0.82rem; background-color:var(--bg-panel); padding:0.45rem 0.65rem; border-radius:4px; border:1px solid var(--border-normal); height:38px; box-sizing:border-box;">
             <span class="status-dot" style="background-color:{dot_color};"></span>
             <span style="color:var(--text-secondary); font-weight:500;">{status_txt}</span>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
     with c_backend:
         b_color = "var(--status-normal)" if backend_connected else "var(--status-critical)"
         b_txt = "Backend Active" if backend_connected else "Backend Lost"
-        st.markdown(f"""
+        render_scada_html(f"""
         <div style="display:flex; align-items:center; gap:0.55rem; font-size:0.82rem; background-color:var(--bg-panel); padding:0.45rem 0.65rem; border-radius:4px; border:1px solid var(--border-normal); height:38px; box-sizing:border-box;">
             <span class="status-dot" style="background-color:{b_color};"></span>
             <span style="color:var(--text-secondary); font-weight:500;">{b_txt}</span>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
     with c_time:
         last_time = latest_data.get("timestamp", "Waiting...") if latest_data else "No telemetry"
-        st.markdown(f"""
+        render_scada_html(f"""
         <div style="font-size:0.82rem; background-color:var(--bg-panel); padding:0.45rem 0.65rem; border-radius:4px; border:1px solid var(--border-normal); height:38px; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
             <span style="color:var(--text-muted); margin-right:0.25rem;">Sync:</span>
             <span class="mono" style="color:var(--text-primary);">{last_time[-8:] if len(last_time) >= 8 else last_time}</span>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
     with c_pause:
         btn_label = "▶" if st.session_state.is_paused else "⏸"
@@ -645,7 +653,7 @@ with st.expander("🧪 SCADA Telemetry & Fault Scenario Injection Toolbar", expa
             st.cache_data.clear()
             st.rerun()
 
-st.markdown("<hr style='border:none; border-top:1px solid var(--border-normal); margin:0.65rem 0 1.15rem 0;'>", unsafe_allow_html=True)
+render_scada_html("<hr style='border:none; border-top:1px solid var(--border-normal); margin:0.65rem 0 1.15rem 0;'>")
 
 # Parse Latest Telemetry
 is_waiting = not latest_data or latest_data.get("waiting", False)
@@ -689,7 +697,7 @@ tab_dashboard, tab_twin, tab_diagnostics, tab_history, tab_system = st.tabs([
 # ==============================================================================
 with tab_dashboard:
     if is_waiting:
-        st.markdown("""
+        render_scada_html("""
         <div class="card-panel" style="padding:3.5rem 2rem; text-align:center; min-height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
             <div style="font-size:1.8rem; margin-bottom:0.75rem;">📡</div>
             <h2 style="font-size:1.25rem; font-weight:600; color:var(--text-primary); margin-bottom:0.4rem;">
@@ -703,13 +711,13 @@ with tab_dashboard:
                 <code class="mono" style="color:var(--status-normal); font-weight:600;">python3 ai4i_machine_simulator.py</code>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
     else:
         # Alarm Banner (if severity HIGH or CRITICAL)
         if severity in ["HIGH", "CRITICAL"]:
             alarm_border = "var(--status-critical)" if severity == "CRITICAL" else "var(--status-high)"
             alarm_bg = "rgba(182, 83, 83, 0.15)" if severity == "CRITICAL" else "rgba(200, 117, 61, 0.12)"
-            st.markdown(f"""
+            render_scada_html(f"""
             <div style="background-color:{alarm_bg}; border:1px solid {alarm_border}; border-left:6px solid {alarm_border}; border-radius:4px; padding:0.85rem 1.25rem; margin-bottom:1.15rem; display:flex; align-items:center; justify-content:space-between;">
                 <div style="display:flex; align-items:center; gap:0.75rem;">
                     <span style="font-size:1.25rem;">⚠️</span>
@@ -722,7 +730,7 @@ with tab_dashboard:
                 </div>
                 <span class="mono" style="font-size:0.8rem; color:var(--text-secondary);">{latest_data.get('timestamp')}</span>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
         # Machine Status Overview Card (MachineStatusCard.jsx)
         indicator_color = "var(--status-normal)"
@@ -740,7 +748,7 @@ with tab_dashboard:
         type_map = {'L': 'Low Quality Variant (L)', 'M': 'Medium Quality Variant (M)', 'H': 'High Quality Variant (H)'}
         type_desc = type_map.get(sensors.get("type", "L"), f"Variant {sensors.get('type')}")
 
-        st.markdown(f"""
+        render_scada_html(f"""
         <div class="card-panel" style="border-left:5px solid {indicator_color}; padding:1.25rem 1.65rem; margin-bottom:1.25rem;">
             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1.5rem;">
                 <div style="display:flex; align-items:center; gap:1.25rem;">
@@ -787,7 +795,7 @@ with tab_dashboard:
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         # 5 Sensor Metric Cards (SensorMonitoring.jsx)
         chronological_history = list(reversed(history_records))
@@ -845,7 +853,7 @@ with tab_dashboard:
             }
         ]
 
-        st.markdown("""
+        render_scada_html("""
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.65rem;">
             <span style="font-size:0.95rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">
                 LIVE SENSOR TELEMETRY
@@ -854,7 +862,7 @@ with tab_dashboard:
                 Operating Thresholds: diagnosis.py
             </span>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         sc_cols = st.columns(5)
         for i, s in enumerate(sensor_configs):
@@ -877,7 +885,7 @@ with tab_dashboard:
             spark_markup = render_sparkline_svg(s['hist'], color="#5B7C99" if is_n else sc_color)
 
             with sc_cols[i]:
-                st.markdown(f"""
+                render_scada_html(f"""
                 <div class="card-panel" style="padding:1.25rem 1.15rem; min-height:185px; display:flex; flex-direction:column; justify-content:space-between;">
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.45rem;">
                         <span style="font-size:0.80rem; color:var(--text-secondary); font-weight:600; letter-spacing:0.03em;">
@@ -909,9 +917,9 @@ with tab_dashboard:
                         {spark_markup}
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """)
 
-        st.markdown("<div style='height:1.25rem;'></div>", unsafe_allow_html=True)
+        render_scada_html("<div style='height:1.25rem;'></div>")
 
         # 2-Column Diagnostic & Decision Panel (FailureRiskGauge + DiagnosisPanel on Left | RecommendedAction on Right)
         col_diag_left, col_diag_right = st.columns([1, 1.4])
@@ -923,9 +931,9 @@ with tab_dashboard:
                 threshold=0.40,
                 status=status_label
             )
-            st.markdown(gauge_html, unsafe_allow_html=True)
+            render_scada_html(gauge_html)
 
-            st.markdown("<div style='height:0.85rem;'></div>", unsafe_allow_html=True)
+            render_scada_html("<div style='height:0.85rem;'></div>")
 
             # Diagnosis Contributing Conditions Panel (DiagnosisPanel.jsx)
             is_all_clear = not issues or len(issues) == 0 or (len(issues) == 1 and "No major abnormal" in issues[0])
@@ -946,7 +954,7 @@ with tab_dashboard:
                     </div>
                     """
 
-            st.markdown(f"""
+            render_scada_html(f"""
             <div class="card-panel" style="padding:1.25rem 1.45rem;">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; border-bottom:1px solid var(--border-normal); padding-bottom:0.55rem;">
                     <div style="display:flex; align-items:center; gap:0.5rem;">
@@ -961,7 +969,7 @@ with tab_dashboard:
                 </div>
                 {issues_content}
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
         with col_diag_right:
             # Recommended Action Panel (RecommendedAction.jsx)
@@ -985,7 +993,7 @@ with tab_dashboard:
                 action_color = "var(--status-medium)"
                 action_icon = "🔧"
 
-            st.markdown(f"""
+            render_scada_html(f"""
             <div class="card-panel" style="border-left:5px solid {action_color}; display:flex; align-items:flex-start; gap:1.25rem; padding:1.35rem 1.65rem;">
                 <div style="padding:0.65rem; border-radius:4px; background-color:var(--bg-elevated); border:1px solid var(--border-normal); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:1.5rem;">
                     {action_icon}
@@ -1007,12 +1015,12 @@ with tab_dashboard:
                     </p>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
-            st.markdown("<div style='height:0.85rem;'></div>", unsafe_allow_html=True)
+            render_scada_html("<div style='height:0.85rem;'></div>")
 
             # Quick Action Links to 3D Digital Twin & RAG Maintenance Manual
-            st.markdown(f"""
+            render_scada_html(f"""
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem;">
                 <div class="card-panel" style="display:flex; flex-direction:column; justify-content:space-between; min-height:120px;">
                     <div>
@@ -1044,7 +1052,7 @@ with tab_dashboard:
                     </div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
 # ==============================================================================
 # TAB 2: 3D DIGITAL TWIN (DigitalTwinPage.jsx)
@@ -1053,7 +1061,7 @@ with tab_twin:
     if is_waiting:
         st.info("Standing by for telemetry stream to initialize CAD kinematics...")
     else:
-        st.markdown("""
+        render_scada_html("""
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1rem;">
             <div>
                 <h3 style="font-size:1.2rem; font-weight:600; color:var(--text-primary); margin:0;">
@@ -1064,7 +1072,7 @@ with tab_twin:
                 </p>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         # Subsystem Filter Buttons
         f1, f2, f3, f4, _ = st.columns([1, 1, 1, 1, 2])
@@ -1083,9 +1091,9 @@ with tab_twin:
 
         # SVG Schematic Canvas
         schematic_svg = render_machine_schematic_svg(sensors, evals, selected_part=st.session_state.schematic_part)
-        st.markdown(schematic_svg, unsafe_allow_html=True)
+        render_scada_html(schematic_svg)
 
-        st.markdown("<div style='height:1.25rem;'></div>", unsafe_allow_html=True)
+        render_scada_html("<div style='height:1.25rem;'></div>")
 
         # CAD Kinematics & Physical Spec Grid
         k_col1, k_col2 = st.columns(2)
@@ -1096,7 +1104,7 @@ with tab_twin:
         load_margin = max(0.0, 55.0 - torque)
 
         with k_col1:
-            st.markdown(f"""
+            render_scada_html(f"""
             <div class="card-panel">
                 <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
                     <span style="font-size:1.0rem;">🔥</span>
@@ -1117,10 +1125,10 @@ with tab_twin:
                     </div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
         with k_col2:
-            st.markdown(f"""
+            render_scada_html(f"""
             <div class="card-panel">
                 <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
                     <span style="font-size:1.0rem;">⚙️</span>
@@ -1141,14 +1149,14 @@ with tab_twin:
                     </div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
 # ==============================================================================
 # TAB 3: DIAGNOSTICS & RAG MANUAL (DiagnosticsPage.jsx & RAGKnowledgePanel.jsx)
 # ==============================================================================
 with tab_diagnostics:
     if is_waiting:
-        st.markdown("""
+        render_scada_html("""
         <div class="card-panel" style="padding:2.5rem; text-align:center; color:var(--text-muted); margin-bottom:1.25rem;">
             <div style="font-size:2rem; margin-bottom:0.75rem;">🩺</div>
             <h3 style="font-size:1.1rem; color:var(--text-primary); margin-bottom:0.35rem;">Diagnostic Engine Standing By</h3>
@@ -1156,9 +1164,9 @@ with tab_diagnostics:
                 Awaiting live telemetry from MQTT broker to perform heuristic and vector evaluations...
             </p>
         </div>
-        """, unsafe_allow_html=True)
+        """)
     else:
-        st.markdown(f"""
+        render_scada_html(f"""
         <div class="card-panel" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.25rem;">
             <div>
                 <h2 style="font-size:1.15rem; font-weight:600; color:var(--text-primary); margin:0; display:flex; align-items:center; gap:0.5rem;">
@@ -1177,10 +1185,10 @@ with tab_diagnostics:
                 </span>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         if rag_items and len(rag_items) > 0:
-            st.markdown(f"""
+            render_scada_html(f"""
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
                 <div style="font-size:0.95rem; font-weight:600; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.04em;">
                     Contextually Retrieved Maintenance Protocols ({len(rag_items)} Matched)
@@ -1189,7 +1197,7 @@ with tab_diagnostics:
                     Embedding: all-MiniLM-L6-v2 (384-dim)
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
             for idx, item in enumerate(rag_items):
                 topic = item.get("topic", f"Topic {idx+1}")
@@ -1209,7 +1217,7 @@ with tab_diagnostics:
                     </div>
                 """ for s_idx, s in enumerate(steps)])
 
-                st.markdown(f"""
+                render_scada_html(f"""
                 <div class="card-panel" style="margin-bottom:1.25rem; padding:1.35rem;">
                     <div style="background-color:var(--bg-elevated); padding:0.65rem 1rem; border-radius:4px; border:1px solid var(--border-normal); display:flex; align-items:center; gap:0.65rem; margin-bottom:1rem;">
                         <span style="color:var(--status-high);">🛡️</span>
@@ -1254,9 +1262,9 @@ with tab_diagnostics:
                         {steps_html}
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """)
         else:
-            st.markdown("""
+            render_scada_html("""
             <div class="card-panel" style="padding:2.5rem; text-align:center; color:var(--text-muted);">
                 <div style="font-size:1.8rem; margin-bottom:0.5rem;">📖</div>
                 <h4 style="color:var(--text-primary); margin-bottom:0.25rem;">No Active Abnormal Condition</h4>
@@ -1264,10 +1272,10 @@ with tab_diagnostics:
                     When an anomaly or fault risk is identified, the FAISS vector index retrieves contextual repair instructions automatically.
                 </p>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
     # Semantic Knowledge Base Search Drawer
-    st.markdown("<div style='height:0.85rem;'></div>", unsafe_allow_html=True)
+    render_scada_html("<div style='height:0.85rem;'></div>")
     with st.expander("🔍 Interactive FAISS Semantic Knowledge Base Search", expanded=False):
         search_q = st.text_input("Enter search query (e.g. 'bearing vibration', 'overheating', 'torque overload')", "")
         if search_q:
@@ -1285,7 +1293,7 @@ with tab_diagnostics:
 # TAB 4: HISTORY & SENSOR TRENDS (SensorTrendsChart.jsx & TelemetryHistoryTable.jsx)
 # ==============================================================================
 with tab_history:
-    st.markdown(f"""
+    render_scada_html(f"""
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.85rem;">
         <div>
             <h3 style="font-size:1.15rem; font-weight:600; color:var(--text-primary); margin:0;">
@@ -1301,7 +1309,7 @@ with tab_history:
             </span>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     # Metric Selection Buttons
     m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
@@ -1368,14 +1376,14 @@ with tab_history:
     else:
         st.info("Accumulating live telemetry buffer for trend analysis...")
 
-    st.markdown("<div style='height:1.25rem;'></div>", unsafe_allow_html=True)
+    render_scada_html("<div style='height:1.25rem;'></div>")
 
     # Persistent PostgreSQL Telemetry History Table
-    st.markdown("""
+    render_scada_html("""
     <div style="font-size:0.95rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.65rem;">
         Persistent Database Records (PostgreSQL 16)
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     # Filter Controls Bar
     fil_col1, fil_col2, fil_col3 = st.columns([1, 1, 2])
@@ -1423,7 +1431,7 @@ with tab_history:
 # TAB 5: SYSTEM ARCHITECTURE (SystemStatusPage.jsx)
 # ==============================================================================
 with tab_system:
-    st.markdown("""
+    render_scada_html("""
     <div class="card-panel" style="margin-bottom:1.25rem;">
         <h2 style="font-size:1.15rem; font-weight:600; margin:0; display:flex; align-items:center; gap:0.5rem; color:var(--text-primary);">
             🖥️ System Health & Diagnostic Architecture
@@ -1432,13 +1440,13 @@ with tab_system:
             Broker telemetry status, ML model parameters, rule-engine thresholds, FAISS vector store, and persistent database telemetry
         </p>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     arch_c1, arch_c2 = st.columns(2)
 
     with arch_c1:
         # Node 1: MQTT Ingestion
-        st.markdown(f"""
+        render_scada_html(f"""
         <div class="card-panel" style="margin-bottom:1.25rem;">
             <div style="font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-primary); border-bottom:1px solid var(--border-normal); padding-bottom:0.6rem; margin-bottom:0.75rem;">
                 📡 IoT Telemetry Ingestion (MQTT)
@@ -1466,10 +1474,10 @@ with tab_system:
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         # Node 2: ML Model
-        st.markdown("""
+        render_scada_html("""
         <div class="card-panel" style="margin-bottom:1.25rem;">
             <div style="font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-primary); border-bottom:1px solid var(--border-normal); padding-bottom:0.6rem; margin-bottom:0.75rem;">
                 🧠 Predictive ML Pipeline
@@ -1493,13 +1501,13 @@ with tab_system:
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
     with arch_c2:
         # Node 3: PostgreSQL Database
         total_recs = db_stats.get("total_persisted_records", sys_status.get("database_records", 0)) if db_stats else 0
         storage_eng = db_stats.get("storage_engine", "PostgreSQL 16") if db_stats else "PostgreSQL 16"
-        st.markdown(f"""
+        render_scada_html(f"""
         <div class="card-panel" style="margin-bottom:1.25rem;">
             <div style="font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-primary); border-bottom:1px solid var(--border-normal); padding-bottom:0.6rem; margin-bottom:0.75rem;">
                 🗄️ Persistent Relational Storage
@@ -1523,10 +1531,10 @@ with tab_system:
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         # Node 4: FAISS Vector Architecture
-        st.markdown("""
+        render_scada_html("""
         <div class="card-panel" style="margin-bottom:1.25rem;">
             <div style="font-size:0.85rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-primary); border-bottom:1px solid var(--border-normal); padding-bottom:0.6rem; margin-bottom:0.75rem;">
                 📚 RAG Knowledge Architecture
@@ -1550,12 +1558,10 @@ with tab_system:
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
-# ==============================================================================
 # Industrial Console Footer (Matching React App.jsx footer)
-# ==============================================================================
-st.markdown("""
+render_scada_html("""
 <div style="border-top:1px solid var(--border-normal); background-color:var(--bg-secondary); padding:1.1rem 1.5rem; font-size:0.82rem; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.85rem; margin-top:2.5rem; border-radius:4px;">
     <div style="display:flex; align-items:center; gap:0.85rem;">
         <span style="font-weight:600; color:var(--text-primary);">P_311 Industrial Fault Diagnosis System</span>
@@ -1568,7 +1574,7 @@ st.markdown("""
         <span>Stratified Gradient Boosting Classifier • Threshold: 0.40</span>
     </div>
 </div>
-""", unsafe_allow_html=True)
+""")
 
 # ==============================================================================
 # Background Auto-Refresh Loop
