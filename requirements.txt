@@ -18,3 +18,8 @@ sentence-transformers>=2.5.0
 faiss-cpu>=1.8.0
 python-dateutil>=2.8.2
 python-dotenv>=1.0.0
+
+# Streamlit Deployment Dependencies
+streamlit>=1.32.0
+requests>=2.28.0
+plotly>=5.18.0,<6.0.0
