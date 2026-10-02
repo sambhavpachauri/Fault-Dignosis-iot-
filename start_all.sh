@@ -84,7 +84,6 @@ cleanup() {
     echo ""
     echo "🛑 Shutting down P_311 services..."
     if [ -n "$SIM_PID" ]; then kill "$SIM_PID" 2>/dev/null; fi
-    if [ -n "$STREAMLIT_PID" ]; then kill "$STREAMLIT_PID" 2>/dev/null; fi
     if [ -n "$FRONT_PID" ]; then kill "$FRONT_PID" 2>/dev/null; fi
     if [ -n "$BACK_PID" ]; then kill "$BACK_PID" 2>/dev/null; fi
     echo "✅ All services stopped."
@@ -93,26 +92,20 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 # 6. Start FastAPI Backend (Port 8000)
-echo "🚀 [4/6] Starting FastAPI Backend on port 8000..."
+echo "🚀 [4/5] Starting FastAPI Backend on port 8000..."
 "$UVICORN_BIN" backend.main:app --host 127.0.0.1 --port 8000 > /dev/null 2>&1 &
 BACK_PID=$!
 sleep 2
 
 # 7. Start Vite React Frontend (Port 5173)
-echo "🚀 [5/6] Starting Vite SCADA Frontend on port 5173..."
+echo "🚀 [5/5] Starting Vite SCADA Frontend on port 5173..."
 cd "$PROJECT_DIR/frontend"
 npm run dev -- --host 127.0.0.1 --port 5173 > /dev/null 2>&1 &
 FRONT_PID=$!
 cd "$PROJECT_DIR"
 sleep 2
 
-# 8. Start Streamlit App (Port 8501)
-echo "🚀 [6/6] Starting Streamlit Application on port 8501..."
-"$PROJECT_DIR/venv/bin/streamlit" run streamlit_app.py --server.port 8501 --server.headless true > /dev/null 2>&1 &
-STREAMLIT_PID=$!
-sleep 2
-
-# 9. Start IoT Machine Telemetry Simulator
+# 8. Start IoT Machine Telemetry Simulator
 echo "📡 Launching IoT Machine Sensor Simulator (Publishing to factory/machine1/sensors)..."
 "$PYTHON_BIN" ai4i_machine_simulator.py &
 SIM_PID=$!
@@ -122,7 +115,6 @@ echo "=================================================================="
 echo "  ✅ SYSTEM FULLY OPERATIONAL & CONNECTED"
 echo "=================================================================="
 echo "  🖥️  SCADA Dashboard : http://127.0.0.1:5173"
-echo "  📊 Streamlit Portal : http://127.0.0.1:8501"
 echo "  🔌 Backend API Docs : http://127.0.0.1:8000/docs"
 echo "  🐘 Database Storage : $DATABASE_URL"
 echo "  📡 MQTT Stream Topic: factory/machine1/sensors (127.0.0.1:1883)"
